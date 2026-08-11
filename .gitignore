@@ -1,1 +1,24 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
 
+# Virtual environments
+.venv
+AI_Agent 1/
+Mcp server/
+.env
+.python-version
+main.py
+notes.txt
+pyproject.toml
+uv.lock
+Readme.md
+
+# Session 3 extension -- regenerated build artifacts (not source, safe to
+# rebuild any time with `python -m rag.build_index`)
+rag/vector_store.db
+rag/_embedder.pkl
