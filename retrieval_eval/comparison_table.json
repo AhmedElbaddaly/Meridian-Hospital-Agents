@@ -1,0 +1,42 @@
+{
+  "rows": [
+    {
+      "architecture": "naive_rag",
+      "accuracy": "11/12",
+      "accuracy_frac": 0.9166666666666666,
+      "by_category": {
+        "general": "4/4",
+        "citation": "4/4",
+        "multi_hop": "3/4"
+      },
+      "avg_tokens_per_query": 566.2,
+      "avg_latency_sec": 0.001
+    },
+    {
+      "architecture": "hybrid_search",
+      "accuracy": "11/12",
+      "accuracy_frac": 0.9166666666666666,
+      "by_category": {
+        "general": "4/4",
+        "citation": "4/4",
+        "multi_hop": "3/4"
+      },
+      "avg_tokens_per_query": 569.5,
+      "avg_latency_sec": 0.0015
+    },
+    {
+      "architecture": "agentic_rag",
+      "accuracy": "12/12",
+      "accuracy_frac": 1.0,
+      "by_category": {
+        "general": "4/4",
+        "citation": "4/4",
+        "multi_hop": "4/4"
+      },
+      "avg_tokens_per_query": 533,
+      "avg_latency_sec": 0.0012
+    }
+  ],
+  "chosen": "hybrid_search",
+  "reasoning": "'hybrid_search' selected as the default: tied for the best combined general+citation accuracy (100%) among ['naive_rag', 'hybrid_search', 'agentic_rag']. At this corpus size (12 chunks) all three architectures run in low-single-digit milliseconds, so raw latency differences are noise, not signal -- the tie is broken structurally (hybrid search's BM25 side is effectively free here and protects citation accuracy as the manual grows) rather than by over-fitting to a sub-millisecond timing measurement. Multi-part questions (category 'multi_hop') should still be routed to agentic_rag specifically, since only it reliably clears that category -- see the table."
+}
