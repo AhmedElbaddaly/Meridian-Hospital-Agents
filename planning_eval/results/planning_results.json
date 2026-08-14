@@ -1,0 +1,182 @@
+{
+  "mode": "offline",
+  "rows": [
+    {
+      "method": "plan_and_solve",
+      "case": "A1_clear_mixed_severity",
+      "success": true,
+      "llm_calls": 2,
+      "total_tokens": 165,
+      "latency_s": 0.0001,
+      "note": ""
+    },
+    {
+      "method": "plan_and_solve",
+      "case": "A2_all_red_mass_casualty",
+      "success": true,
+      "llm_calls": 2,
+      "total_tokens": 161,
+      "latency_s": 0.0,
+      "note": ""
+    },
+    {
+      "method": "plan_and_solve",
+      "case": "A3_single_patient_walkin",
+      "success": true,
+      "llm_calls": 2,
+      "total_tokens": 141,
+      "latency_s": 0.0,
+      "note": ""
+    },
+    {
+      "method": "naive_single_pass",
+      "case": "R1_diverges_favor_tot",
+      "success": false,
+      "llm_calls": 0,
+      "total_tokens": 0,
+      "latency_s": 0.0,
+      "note": "Severity bands intact but 2 unstable-diagnosis patient(s) ranked behind a less time-sensitive same-band patient."
+    },
+    {
+      "method": "tree_of_thoughts",
+      "case": "R1_diverges_favor_tot",
+      "success": true,
+      "llm_calls": 3,
+      "total_tokens": 273,
+      "latency_s": 0.0001,
+      "note": "Severity bands intact; 0 unstable-diagnosis misplacements within band."
+    },
+    {
+      "method": "naive_single_pass",
+      "case": "R2_naive_already_correct",
+      "success": true,
+      "llm_calls": 0,
+      "total_tokens": 0,
+      "latency_s": 0.0,
+      "note": "Severity bands intact; 0 unstable-diagnosis misplacements within band."
+    },
+    {
+      "method": "tree_of_thoughts",
+      "case": "R2_naive_already_correct",
+      "success": true,
+      "llm_calls": 3,
+      "total_tokens": 252,
+      "latency_s": 0.0001,
+      "note": "Severity bands intact; 0 unstable-diagnosis misplacements within band."
+    },
+    {
+      "method": "naive_single_pass",
+      "case": "R3_multi_tie_within_band",
+      "success": false,
+      "llm_calls": 0,
+      "total_tokens": 0,
+      "latency_s": 0.0,
+      "note": "Severity bands intact but 3 unstable-diagnosis patient(s) ranked behind a less time-sensitive same-band patient."
+    },
+    {
+      "method": "tree_of_thoughts",
+      "case": "R3_multi_tie_within_band",
+      "success": true,
+      "llm_calls": 3,
+      "total_tokens": 283,
+      "latency_s": 0.0001,
+      "note": "Severity bands intact; 0 unstable-diagnosis misplacements within band."
+    },
+    {
+      "method": "naive_first_fit",
+      "case": "L1_sufficient_capacity",
+      "success": true,
+      "llm_calls": 0,
+      "total_tokens": 0,
+      "latency_s": 0.0,
+      "note": "valid on first try"
+    },
+    {
+      "method": "lats",
+      "case": "L1_sufficient_capacity",
+      "success": true,
+      "llm_calls": 2,
+      "total_tokens": 89,
+      "latency_s": 0.0001,
+      "note": "2 RED patient(s) matched to real free beds (LATS iteration 1, action=first_fit_unchecked)."
+    },
+    {
+      "method": "naive_first_fit",
+      "case": "L2_naive_double_books_needs_lats",
+      "success": false,
+      "llm_calls": 0,
+      "total_tokens": 0,
+      "latency_s": 0.0,
+      "note": "Candidate double-books bed id(s) within itself: [9]."
+    },
+    {
+      "method": "lats",
+      "case": "L2_naive_double_books_needs_lats",
+      "success": true,
+      "llm_calls": 4,
+      "total_tokens": 195,
+      "latency_s": 0.0001,
+      "note": "2 RED patient(s) matched to real free beds (LATS iteration 1, action=first_fit_verified)."
+    },
+    {
+      "method": "naive_first_fit",
+      "case": "L3_overflow_no_hallucinated_beds",
+      "success": false,
+      "llm_calls": 0,
+      "total_tokens": 0,
+      "latency_s": 0.0,
+      "note": "Candidate double-books bed id(s) within itself: [8]."
+    },
+    {
+      "method": "lats",
+      "case": "L3_overflow_no_hallucinated_beds",
+      "success": true,
+      "llm_calls": 4,
+      "total_tokens": 186,
+      "latency_s": 0.0001,
+      "note": "1 RED patient(s) matched to real free beds (LATS iteration 1, action=first_fit_verified)."
+    }
+  ],
+  "summary": [
+    {
+      "method": "plan_and_solve",
+      "task_success": "3/3",
+      "success_rate": 1.0,
+      "avg_llm_calls": 2,
+      "avg_tokens": 155.7,
+      "avg_latency_s": 3e-05
+    },
+    {
+      "method": "naive_single_pass",
+      "task_success": "1/3",
+      "success_rate": 0.333,
+      "avg_llm_calls": 0,
+      "avg_tokens": 0,
+      "avg_latency_s": 0.0
+    },
+    {
+      "method": "tree_of_thoughts",
+      "task_success": "3/3",
+      "success_rate": 1.0,
+      "avg_llm_calls": 3,
+      "avg_tokens": 269.3,
+      "avg_latency_s": 0.0001
+    },
+    {
+      "method": "naive_first_fit",
+      "task_success": "1/3",
+      "success_rate": 0.333,
+      "avg_llm_calls": 0,
+      "avg_tokens": 0,
+      "avg_latency_s": 0.0
+    },
+    {
+      "method": "lats",
+      "task_success": "3/3",
+      "success_rate": 1.0,
+      "avg_llm_calls": 3.33,
+      "avg_tokens": 156.7,
+      "avg_latency_s": 0.0001
+    }
+  ]
+}
