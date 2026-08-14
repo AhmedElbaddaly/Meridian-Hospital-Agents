@@ -1,0 +1,77 @@
+{
+  "rows": [
+    {
+      "case": "A_sufficient_capacity",
+      "method": "decomposition_first",
+      "task_success": true,
+      "llm_calls": 5,
+      "input_tokens": 241,
+      "output_tokens": 152,
+      "total_tokens": 393,
+      "latency_s": 0.0049,
+      "unresolved_overflow": []
+    },
+    {
+      "case": "A_sufficient_capacity",
+      "method": "dynamic_decomposition",
+      "task_success": true,
+      "llm_calls": 7,
+      "input_tokens": 426,
+      "output_tokens": 28,
+      "total_tokens": 454,
+      "latency_s": 0.0032,
+      "diverged_with_escalation": false
+    },
+    {
+      "case": "B_mass_casualty_shortfall",
+      "method": "decomposition_first",
+      "task_success": false,
+      "llm_calls": 5,
+      "input_tokens": 255,
+      "output_tokens": 176,
+      "total_tokens": 431,
+      "latency_s": 0.0053,
+      "unresolved_overflow": [
+        "Test Patient B2"
+      ]
+    },
+    {
+      "case": "B_mass_casualty_shortfall",
+      "method": "dynamic_decomposition",
+      "task_success": true,
+      "llm_calls": 8,
+      "input_tokens": 628,
+      "output_tokens": 32,
+      "total_tokens": 660,
+      "latency_s": 0.0056,
+      "diverged_with_escalation": true
+    },
+    {
+      "case": "C_mixed_severity",
+      "method": "decomposition_first",
+      "task_success": true,
+      "llm_calls": 5,
+      "input_tokens": 247,
+      "output_tokens": 158,
+      "total_tokens": 405,
+      "latency_s": 0.0035,
+      "unresolved_overflow": []
+    },
+    {
+      "case": "C_mixed_severity",
+      "method": "dynamic_decomposition",
+      "task_success": true,
+      "llm_calls": 7,
+      "input_tokens": 456,
+      "output_tokens": 28,
+      "total_tokens": 484,
+      "latency_s": 0.0029,
+      "diverged_with_escalation": false
+    }
+  ],
+  "avg_total_tokens_per_run": {
+    "decomposition_first": 409.7,
+    "dynamic_decomposition": 532.7
+  },
+  "context_growth_note": "dynamic_decomposition averaged 532.7 tokens/run vs 409.7 for decomposition_first across 3 cases -- larger context is the real, measured cost of dynamic's plan-act-observe-replan loop, not a hypothetical trade-off."
+}
