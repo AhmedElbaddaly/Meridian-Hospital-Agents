@@ -6,24 +6,24 @@ no new agent/business logic duplicated here:
   - agent.agent.MediCoreAgent          -> memory_rag chat
   - mcp_server.tool_registry           -> admin tool enable/disable
   - rag.vector_store.VectorStore       -> admin RAG document add/remove
-
-state-graph-backed routes (planning, post_op_recovery, insurance_auth,
-ed_surge_triage, HITL queue, ticket queue) are stubbed with a clear 501 +
-explanation until Person1/Person2's state_graph/ and mcp_bridge.py changes
-are pushed -- NOT faked with placeholder data.
+  - state_graph/                       -> post_op_recovery, insurance_auth,
+                                           ed_surge_triage chat + HITL/ticket admin
 
 Run from repo root:
     pip install fastapi uvicorn
-    uvicorn platform.backend.main:app --reload
+    uvicorn webapp.backend.main:app --reload
 Then open http://127.0.0.1:8000/docs for interactive API testing.
 """
-
 from __future__ import annotations
+
+import sys
+import asyncio
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 import json
 import os
 import sqlite3
-import sys
 from contextlib import asynccontextmanager
 from typing import Optional
 
@@ -39,6 +39,7 @@ _REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")
 if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 _MCP_SERVER_DIR = os.path.join(_REPO_ROOT, "mcp_server")
+_GRAPH_STATE_DB = os.path.join(_REPO_ROOT, "db", "graph_state.db")
 if _MCP_SERVER_DIR not in sys.path:
     sys.path.insert(0, _MCP_SERVER_DIR)
 
@@ -49,7 +50,27 @@ from rag.build_index import build as build_rag_index       # noqa: E402
 from rag.chunking import chunk_document, Chunk    # noqa: E402
 from rag.corpus import PolicyDoc                  # noqa: E402
 from rag.embeddings import get_embedder           # noqa: E402
+from state_graph.hitl import list_pending_hitl, resolve_hitl_task              # noqa: E402
+from state_graph.tickets import list_open_tickets, resolve_failure_ticket      # noqa: E402
+from state_graph.checkpoint import CheckpointStore                             # noqa: E402
+from state_graph.runtime import GraphRuntime, GraphDef                         # noqa: E402
+from state_graph.graphs.insurance_auth import build_insurance_auth_graph       # noqa: E402
+from state_graph.graphs.ed_surge_triage import build_ed_surge_triage_graph     # noqa: E402
+from state_graph.graphs.post_op_recovery import build_post_op_recovery_graph   # noqa: E402
 
+
+_GRAPH_BUILDERS = {
+    "insurance_auth": build_insurance_auth_graph,
+    "ed_surge_triage": build_ed_surge_triage_graph,
+    "post_op_recovery": build_post_op_recovery_graph,
+}
+
+
+def _get_runtime_for_graph(graph_name: str, store: CheckpointStore) -> GraphRuntime:
+    builder = _GRAPH_BUILDERS.get(graph_name)
+    if not builder:
+        raise ValueError(f"Unknown graph_name: {graph_name}")
+    return GraphRuntime(builder(), store=store)
 
 # ---------------------------------------------------------------------
 # App-wide state (single process, single agent instance -- fine for a
@@ -136,7 +157,6 @@ AGENTS = [
      "description": "Triage ordering and bed/OR assignment during an ED surge, admin-approved for irreversible actions."},
 ]
 
-_STATE_GRAPH_AGENTS = {"post_op_recovery", "insurance_auth", "ed_surge_triage"}
 
 
 @app.get("/api/agents")
@@ -172,15 +192,56 @@ async def chat(req: ChatRequest):
                    "entrypoint exists in the repo yet (see team discussion).",
         )
 
-    if req.agent in _STATE_GRAPH_AGENTS:
-        raise HTTPException(
-            status_code=501,
-            detail=f"'{req.agent}' pending: state_graph/ and mcp_bridge.py wiring "
-                   f"not yet pushed to this branch by Person1/Person2.",
-        )
+    if req.agent in _GRAPH_BUILDERS:
+        store = CheckpointStore(db_path=_GRAPH_STATE_DB)
+        try:
+            runtime = _get_runtime_for_graph(req.agent, store)
+        except ValueError as e:
+            raise HTTPException(status_code=404, detail=str(e))
+
+        if req.run_id:
+            # Continuing an existing run -- picks up an admin's HITL/ticket
+            # resolution automatically via runtime.resume()'s own logic.
+            graph_state = runtime.resume(req.run_id)
+        else:
+            # New run. These graphs need structured fields (patient_id, cpt_code,
+            # patients list, etc.), not free chat text -- so for a new run the
+            # message body must be a JSON object with those fields.
+            try:
+                initial_data = json.loads(req.message)
+                if not isinstance(initial_data, dict):
+                    raise ValueError
+            except (json.JSONDecodeError, ValueError):
+                raise HTTPException(
+                    status_code=422,
+                    detail=(
+                        f"'{req.agent}' requires structured JSON input in the message "
+                        f"field to start a new run (e.g. patient_id, procedure), not "
+                        f"free-text chat. Pass run_id to continue an existing run."
+                    ),
+                )
+            graph_state = runtime.start(initial_data=initial_data)
+
+        graph_state = runtime.run_until_pause(graph_state)
+
+        if graph_state.status == "waiting_hitl":
+            reply = f"Paused for human review: {graph_state.data.get('hitl_reason', 'awaiting admin decision')}"
+        elif graph_state.status == "failed":
+            reply = f"Run failed and a ticket was opened: {graph_state.error}"
+        elif graph_state.status == "completed":
+            reply = f"Run completed: {json.dumps(graph_state.data, default=str)}"
+        else:
+            reply = f"Run in progress, currently at node: {graph_state.current_node}"
+
+        return {
+            "reply": reply,
+            "run_id": graph_state.run_id,
+            "status": graph_state.status,
+            "hitl_task_id": graph_state.hitl_task_id,
+            "ticket_id": graph_state.ticket_id,
+        }
 
     raise HTTPException(status_code=404, detail=f"Unknown agent '{req.agent}'")
-
 
 # =======================================================================
 # Admin: MCP tool registry (fully working today)
