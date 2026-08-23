@@ -12,7 +12,7 @@ AI_Agent 1/
 Mcp server/
 .env
 .python-version
-main.py
+/main.py
 notes.txt
 pyproject.toml
 uv.lock
