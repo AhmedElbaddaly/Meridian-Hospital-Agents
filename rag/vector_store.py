@@ -67,6 +67,7 @@ class HNSWIndex:
         self.layers: list[dict[str, set[str]]] = []  # layers[level][node_id] = neighbor ids
         self.node_level: dict[str, int] = {}
         self.entry_point: str | None = None
+        self.deleted: set[str] = set()
 
     @staticmethod
     def _dist(a: np.ndarray, b: np.ndarray) -> float:
@@ -79,7 +80,7 @@ class HNSWIndex:
         visited = set(entry_ids)
         candidates = [(self._dist(query, self.vectors[e]), e) for e in entry_ids]
         candidates.sort(key=lambda x: x[0])
-        result = list(candidates)
+        result = [c for c in candidates if c[1] not in self.deleted]
 
         while candidates:
             dist, current = candidates.pop(0)
@@ -92,9 +93,10 @@ class HNSWIndex:
                 d = self._dist(query, self.vectors[neighbor])
                 if len(result) < ef or d < result[-1][0]:
                     candidates.append((d, neighbor))
-                    result.append((d, neighbor))
-                    result.sort(key=lambda x: x[0])
-                    result = result[:ef]
+                    if neighbor not in self.deleted:
+                        result.append((d, neighbor))
+                        result.sort(key=lambda x: x[0])
+                        result = result[:ef]
             candidates.sort(key=lambda x: x[0])
         return result[:ef]
 
@@ -141,7 +143,16 @@ class HNSWIndex:
                 entry = candidates[0][1]
 
         if level > self.node_level.get(self.entry_point, 0):
-            self.entry_point = node_id
+               self.entry_point = node_id
+
+    def remove(self, node_id: str) -> None:
+        """Tombstone a node: permanently excluded from search results, but
+        kept as a pass-through hop in the graph so neighbors on either side
+        of it stay connected -- avoids a full index rebuild on every
+        delete, the same technique production ANN indexes (Lucene, FAISS)
+        use for the same reason."""
+        self.deleted.add(node_id)
+        self.entry_point = node_id
 
     def search(self, query: np.ndarray, k: int, ef: int | None = None,
                allowed_ids: set[str] | None = None) -> list[tuple[str, float]]:
@@ -248,6 +259,21 @@ class VectorStore:
                  title, text, json.dumps(vector.tolist())),
             )
         self.index.add(chunk_id, vector)
+
+    def delete_by_doc_id(self, doc_id: str) -> int:
+        """Removes every chunk of a document from the durable SQL store AND
+        the live in-memory index -- no full rebuild required, so a delete
+        is visible on the very next query. Returns how many chunks were
+        removed."""
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT chunk_id FROM rag_chunks WHERE doc_id = ?", (doc_id,)
+            ).fetchall()
+            chunk_ids = [r[0] for r in rows]
+            conn.execute("DELETE FROM rag_chunks WHERE doc_id = ?", (doc_id,))
+        for chunk_id in chunk_ids:
+            self.index.remove(chunk_id)
+        return len(chunk_ids)
 
     def _candidate_ids(self, filter: dict | None) -> set[str] | None:
         """Runs the metadata-index-backed WHERE clause BEFORE vector search."""

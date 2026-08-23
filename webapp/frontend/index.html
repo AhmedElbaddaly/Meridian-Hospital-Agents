@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Meridian Hospital Platform</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #171d2b; --panel2: #1e2536;
+    --border: #2a3244; --text: #e8ecf4; --muted: #93a0b8;
+    --accent: #4f8cff; --accent2: #2c6bd6; --danger: #e5484d;
+    --ok: #2fbf71; --warn: #e2a53a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    display: flex; height: 100vh; overflow: hidden;
+  }
+  #sidebar {
+    width: 240px; background: var(--panel); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; padding: 16px 0; flex-shrink: 0;
+  }
+  #sidebar h1 { font-size: 15px; padding: 0 16px 16px; margin: 0; color: var(--muted); }
+  .nav-btn {
+    text-align: left; background: none; border: none; color: var(--text);
+    padding: 12px 16px; cursor: pointer; font-size: 14px; border-left: 3px solid transparent;
+  }
+  .nav-btn:hover { background: var(--panel2); }
+  .nav-btn.active { background: var(--panel2); border-left-color: var(--accent); }
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .view { display: none; flex: 1; overflow: auto; padding: 24px; }
+  .view.active { display: flex; flex-direction: column; }
+
+  /* --- Chat view --- */
+  #chat-header { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+  #agent-select {
+    background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+    padding: 8px 12px; border-radius: 6px; font-size: 14px;
+  }
+  #chat-log { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-bottom: 16px; }
+  .msg { max-width: 70%; padding: 10px 14px; border-radius: 10px; line-height: 1.5; white-space: pre-wrap; }
+  .msg.user { align-self: flex-end; background: var(--accent2); }
+  .msg.assistant { align-self: flex-start; background: var(--panel2); border: 1px solid var(--border); }
+  .msg.system { align-self: center; background: transparent; color: var(--warn); border: 1px dashed var(--warn); font-size: 13px; }
+  #chat-input-row { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
+  #chat-input { flex: 1; background: var(--panel2); border: 1px solid var(--border); color: var(--text); padding: 10px 12px; border-radius: 6px; font-size: 14px; }
+  button.primary { background: var(--accent); border: none; color: white; padding: 10px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+  button.primary:hover { background: var(--accent2); }
+  button.danger { background: transparent; border: 1px solid var(--danger); color: var(--danger); padding: 6px 10px; border-radius: 6px; cursor: pointer; font-size: 13px; }
+
+  /* --- Admin view --- */
+  .admin-tabs { display: flex; gap: 4px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .admin-tab { background: none; border: none; color: var(--muted); padding: 10px 16px; cursor: pointer; font-size: 14px; border-bottom: 2px solid transparent; }
+  .admin-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .admin-panel { display: none; }
+  .admin-panel.active { display: block; }
+  .agent-block { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 14px; }
+  .agent-block h3 { margin: 0 0 10px; font-size: 14px; color: var(--muted); }
+  .tool-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; font-size: 14px; }
+  .switch { position: relative; width: 40px; height: 22px; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: #444; border-radius: 22px; transition: .15s; }
+  .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: .15s; }
+  input:checked + .slider { background: var(--ok); }
+  input:checked + .slider:before { transform: translateX(18px); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; }
+  .pending-banner { background: rgba(226,165,58,.12); border: 1px solid var(--warn); color: var(--warn); padding: 14px; border-radius: 8px; font-size: 14px; }
+  .add-doc-form { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-top: 20px; display: grid; gap: 10px; max-width: 480px; }
+  .add-doc-form input, .add-doc-form textarea {
+    background: var(--panel2); border: 1px solid var(--border); color: var(--text);
+    padding: 8px 10px; border-radius: 6px; font-size: 13px; font-family: inherit;
+  }
+  .add-doc-form textarea { min-height: 80px; resize: vertical; }
+  h2 { font-size: 18px; margin: 0 0 16px; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <h1>Meridian Hospital</h1>
+  <button class="nav-btn active" data-view="chat">Chat</button>
+  <button class="nav-btn" data-view="admin">Admin Dashboard</button>
+</div>
+
+<div id="main">
+
+  <!-- CHAT VIEW -->
+  <div class="view active" id="view-chat">
+    <div id="chat-header">
+      <label for="agent-select">Talking to:</label>
+      <select id="agent-select"></select>
+    </div>
+    <div id="chat-log"></div>
+    <div id="chat-input-row">
+      <input id="chat-input" placeholder="Type a message..." />
+      <button class="primary" id="send-btn">Send</button>
+    </div>
+  </div>
+
+  <!-- ADMIN VIEW -->
+  <div class="view" id="view-admin">
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-panel="tools">MCP Tools</button>
+      <button class="admin-tab" data-panel="rag">RAG Documents</button>
+      <button class="admin-tab" data-panel="hitl">HITL Queue</button>
+      <button class="admin-tab" data-panel="tickets">Tickets</button>
+    </div>
+
+    <div class="admin-panel active" id="panel-tools">
+      <h2>MCP Tool Registry</h2>
+      <div id="tools-container">Loading...</div>
+    </div>
+
+    <div class="admin-panel" id="panel-rag">
+      <h2>RAG Documents</h2>
+      <div id="rag-container">Loading...</div>
+      <form class="add-doc-form" id="add-doc-form">
+        <strong>Add a document</strong>
+        <input name="doc_id" placeholder="doc_id (e.g. policy-42)" required />
+        <input name="title" placeholder="Title" required />
+        <input name="department" placeholder="Department" required />
+        <input name="protocol_id" placeholder="Protocol ID" required />
+        <input name="last_reviewed" placeholder="Last reviewed (YYYY-MM-DD)" required />
+        <textarea name="text" placeholder="Full policy text..." required></textarea>
+        <button class="primary" type="submit">Add Document</button>
+      </form>
+    </div>
+
+    <div class="admin-panel" id="panel-hitl">
+      <h2>Human-in-the-Loop Queue</h2>
+      <div id="hitl-container">Loading...</div>
+    </div>
+
+    <div class="admin-panel" id="panel-tickets">
+      <h2>Failure Tickets</h2>
+      <div id="tickets-container">Loading...</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const API = "http://127.0.0.1:8000";
+const SESSION_ID = localStorage.getItem("session_id") ||
+  (() => { const id = "session-" + Math.random().toString(36).slice(2); localStorage.setItem("session_id", id); return id; })();
+
+// ---------- Nav switching ----------
+document.querySelectorAll(".nav-btn").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + btn.dataset.view).classList.add("active");
+  };
+});
+document.querySelectorAll(".admin-tab").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".admin-tab").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    document.querySelectorAll(".admin-panel").forEach(p => p.classList.remove("active"));
+    document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
+    if (btn.dataset.panel === "tools") loadTools();
+    if (btn.dataset.panel === "rag") loadDocuments();
+    if (btn.dataset.panel === "hitl") loadHitl();
+    if (btn.dataset.panel === "tickets") loadTickets();
+  };
+});
+
+// ---------- Chat ----------
+async function loadAgents() {
+  const res = await fetch(`${API}/api/agents`);
+  const data = await res.json();
+  const sel = document.getElementById("agent-select");
+  sel.innerHTML = data.agents.map(a => `<option value="${a.id}">${a.name}</option>`).join("");
+}
+
+function appendMsg(role, text) {
+  const log = document.getElementById("chat-log");
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.textContent = text;
+  log.appendChild(div);
+  log.scrollTop = log.scrollHeight;
+}
+
+async function sendMessage() {
+  const input = document.getElementById("chat-input");
+  const msg = input.value.trim();
+  if (!msg) return;
+  const agent = document.getElementById("agent-select").value;
+  appendMsg("user", msg);
+  input.value = "";
+
+  try {
+    const res = await fetch(`${API}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ agent, session_id: SESSION_ID, message: msg, run_id: null }),
+    });
+    if (res.status === 501) {
+      const err = await res.json();
+      appendMsg("system", "Not available yet: " + err.detail);
+      return;
+    }
+    const data = await res.json();
+    appendMsg("assistant", data.reply);
+  } catch (e) {
+    appendMsg("system", "Request failed: " + e.message);
+  }
+}
+document.getElementById("send-btn").onclick = sendMessage;
+document.getElementById("chat-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") sendMessage();
+});
+
+// ---------- Admin: Tools ----------
+async function loadTools() {
+  const container = document.getElementById("tools-container");
+  container.textContent = "Loading...";
+  const res = await fetch(`${API}/api/admin/tools`);
+  const data = await res.json();
+  container.innerHTML = data.agents.map(a => `
+    <div class="agent-block">
+      <h3>${a.agent}</h3>
+      ${a.tools.map(t => `
+        <div class="tool-row">
+          <span>${t.name}</span>
+          <label class="switch">
+            <input type="checkbox" ${t.enabled ? "checked" : ""}
+                   onchange="toggleTool('${a.agent}', '${t.name}', this.checked)">
+            <span class="slider"></span>
+          </label>
+        </div>
+      `).join("")}
+    </div>
+  `).join("");
+}
+async function toggleTool(agent, tool, enabled) {
+  await fetch(`${API}/api/admin/tools/${agent}/${tool}/${enabled ? "enable" : "disable"}`, { method: "POST" });
+}
+
+// ---------- Admin: RAG documents ----------
+async function loadDocuments() {
+  const container = document.getElementById("rag-container");
+  container.textContent = "Loading...";
+  const res = await fetch(`${API}/api/admin/rag/documents`);
+  const data = await res.json();
+  container.innerHTML = `
+    <table>
+      <tr><th>Doc ID</th><th>Title</th><th>Department</th><th>Chunks</th><th></th></tr>
+      ${data.documents.map(d => `
+        <tr>
+          <td>${d.doc_id}</td><td>${d.title}</td><td>${d.department}</td><td>${d.chunk_count}</td>
+          <td><button class="danger" onclick="deleteDocument('${d.doc_id}')">Delete</button></td>
+        </tr>
+      `).join("")}
+    </table>`;
+}
+async function deleteDocument(docId) {
+  if (!confirm(`Delete document "${docId}" and all its chunks?`)) return;
+  await fetch(`${API}/api/admin/rag/documents/${docId}`, { method: "DELETE" });
+  loadDocuments();
+}
+document.getElementById("add-doc-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const body = Object.fromEntries(new FormData(form).entries());
+  await fetch(`${API}/api/admin/rag/documents`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+  form.reset();
+  loadDocuments();
+});
+
+// ---------- Admin: HITL + Tickets (honest stubs until state_graph/ lands) ----------
+async function loadHitl() {
+  const container = document.getElementById("hitl-container");
+  const res = await fetch(`${API}/api/admin/hitl`);
+  if (res.status === 501) {
+    const err = await res.json();
+    container.innerHTML = `<div class="pending-banner">${err.detail}</div>`;
+    return;
+  }
+  const data = await res.json();
+  container.textContent = JSON.stringify(data, null, 2);
+}
+async function loadTickets() {
+  const container = document.getElementById("tickets-container");
+  const res = await fetch(`${API}/api/admin/tickets`);
+  if (res.status === 501) {
+    const err = await res.json();
+    container.innerHTML = `<div class="pending-banner">${err.detail}</div>`;
+    return;
+  }
+  const data = await res.json();
+  container.textContent = JSON.stringify(data, null, 2);
+}
+
+// ---------- Init ----------
+loadAgents();
+loadTools();
+</script>
+</body>
+</html>
