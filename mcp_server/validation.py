@@ -33,7 +33,10 @@ def validate_patient_registration(data: dict):
         raise ValueError("Patient name cannot be empty.")
 
     age = data.get("age")
-    if age is None or age < 0 or age > 100:
+    # BUG FIX (Person 2): bound was 100 here while the error message already
+    # said "0 and 120" and the Pydantic model / JSON schema allow up to 120.
+    # Unified to 120 across all three validation layers.
+    if age is None or age < 0 or age > 120:
         raise ValueError("Age must be between 0 and 120.")
 
     gender = data.get("gender")
