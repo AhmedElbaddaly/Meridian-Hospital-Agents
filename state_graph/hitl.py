@@ -24,8 +24,17 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .db_location import resolve_db_path
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT_DB = os.path.join("/tmp", "meridian_graph_state.db")
+
+# BUG FIX (Person 2): was hardcoded to /tmp -- see db_location.py docstring.
+# HITL tasks are how a real admin acts on a paused run; losing them on a
+# container restart would mean a pending physician sign-off or claims
+# approval simply vanishes with no trace. Now resolved to the shared,
+# durable hospital DB.
+def _default_db() -> str:
+    return resolve_db_path()
 
 
 @dataclass
@@ -43,8 +52,10 @@ class HITLTask:
 
 
 def _conn(db_path: Optional[str] = None) -> sqlite3.Connection:
-    path = db_path or DEFAULT_DB
-    conn = sqlite3.connect(path)
+    path = db_path or _default_db()
+    conn = sqlite3.connect(path, timeout=10)
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -66,6 +77,16 @@ def _ensure_schema(db_path: Optional[str] = None) -> None:
                 resolved_at    REAL
             )
             """
+        )
+        # BUG FIX (Person 2): no index existed, so the admin platform's
+        # "pending HITL tasks" panel (list_pending_hitl) and per-run lookups
+        # (get_hitl_for_run) did full table scans. Cheap to add, matters once
+        # a hospital has thousands of historical tasks.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_hitl_status ON hitl_tasks(status, created_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_hitl_run ON hitl_tasks(run_id, created_at DESC)"
         )
         conn.commit()
 

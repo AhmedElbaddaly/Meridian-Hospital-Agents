@@ -23,8 +23,16 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
+from .db_location import resolve_db_path
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT_DB = os.path.join("/tmp", "meridian_graph_state.db")
+
+# BUG FIX (Person 2): was hardcoded to /tmp -- see db_location.py docstring.
+# A failure ticket is the only record that a run died mid-node; if it lived
+# in /tmp it could disappear on exactly the kind of restart it exists to
+# survive.
+def _default_db() -> str:
+    return resolve_db_path()
 
 
 @dataclass
@@ -43,8 +51,10 @@ class FailureTicket:
 
 
 def _conn(db_path: Optional[str] = None) -> sqlite3.Connection:
-    path = db_path or DEFAULT_DB
-    conn = sqlite3.connect(path)
+    path = db_path or _default_db()
+    conn = sqlite3.connect(path, timeout=10)
+    conn.execute("PRAGMA journal_mode = WAL")
+    conn.execute("PRAGMA busy_timeout = 5000")
     conn.row_factory = sqlite3.Row
     return conn
 
@@ -67,6 +77,13 @@ def _ensure_schema(db_path: Optional[str] = None) -> None:
                 resolved_at      REAL
             )
             """
+        )
+        # BUG FIX (Person 2): same missing-index issue as hitl_tasks.
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_status ON failure_tickets(status, created_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_tickets_run ON failure_tickets(run_id, created_at DESC)"
         )
         conn.commit()
 
