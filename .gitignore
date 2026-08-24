@@ -22,3 +22,5 @@ Readme.md
 # rebuild any time with `python -m rag.build_index`)
 rag/vector_store.db
 rag/_embedder.pkl
+
+db/*.db

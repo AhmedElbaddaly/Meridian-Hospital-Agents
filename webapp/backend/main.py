@@ -26,7 +26,7 @@ import os
 import sqlite3
 from contextlib import asynccontextmanager
 from typing import Optional
-
+from dataclasses import asdict
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -319,25 +319,46 @@ def delete_document(doc_id: str):
     return {"doc_id": doc_id, "chunks_removed": removed}
 
 
+# Admin: HITL + tickets -- fully wired to state_graph/
 # =======================================================================
-# Admin: HITL + tickets -- STUBBED, pending state_graph/ push
-# =======================================================================
+class HITLResolveRequest(BaseModel):
+    decision: dict
+    status: str = "approved"
+
+
+class TicketResolveRequest(BaseModel):
+    resolution_note: str
+    status: str = "resolved"
+
 
 @app.get("/api/admin/hitl")
 def list_hitl():
-    raise HTTPException(
-        status_code=501,
-        detail="Pending: state_graph/hitl.py not yet available on this branch.",
-    )
+    tasks = list_pending_hitl()
+    return {"tasks": [asdict(t) if hasattr(t, "__dataclass_fields__") else t for t in tasks]}
+
+
+@app.post("/api/admin/hitl/{task_id}/resolve")
+def resolve_hitl(task_id: str, req: HITLResolveRequest):
+    try:
+        task = resolve_hitl_task(task_id, decision=req.decision, status=req.status)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Could not resolve HITL task: {e}")
+    return {"task_id": task_id, "status": req.status, "resolved": True}
 
 
 @app.get("/api/admin/tickets")
 def list_tickets():
-    raise HTTPException(
-        status_code=501,
-        detail="Pending: state_graph/tickets.py not yet available on this branch.",
-    )
+    tickets = list_open_tickets()
+    return {"tickets": [asdict(t) if hasattr(t, "__dataclass_fields__") else t for t in tickets]}
 
+
+@app.post("/api/admin/tickets/{ticket_id}/resolve")
+def resolve_ticket(ticket_id: str, req: TicketResolveRequest):
+    try:
+        ticket = resolve_failure_ticket(ticket_id, resolution_note=req.resolution_note, status=req.status)
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Could not resolve ticket: {e}")
+    return {"ticket_id": ticket_id, "status": req.status, "resolved": True}
 from fastapi.staticfiles import StaticFiles
 
 _FRONTEND_DIR = os.path.join(_REPO_ROOT, "webapp", "frontend")

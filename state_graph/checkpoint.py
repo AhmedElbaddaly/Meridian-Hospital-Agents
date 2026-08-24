@@ -22,7 +22,8 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # Durable store: prefer shared hospital DB. In constrained environments
 # (e.g. some sandbox filesystems) SQLite WAL can fail; we then use /tmp.
 _SHARED = os.path.join(REPO_ROOT, "db", "meridian_hospital.db")
-_TMP = os.path.join("/tmp", "meridian_graph_state.db")
+import tempfile
+_TMP = os.path.join(tempfile.gettempdir(), "meridian_graph_state.db")
 
 def _pick_db() -> str:
     # Probe write; fall back to /tmp if needed
@@ -36,7 +37,7 @@ def _pick_db() -> str:
     except Exception:
         return _TMP
 
-DEFAULT_DB = os.path.join("/tmp", "meridian_graph_state.db")
+DEFAULT_DB = _pick_db()
 
 
 @dataclass

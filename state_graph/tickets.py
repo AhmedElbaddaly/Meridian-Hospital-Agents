@@ -24,7 +24,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-DEFAULT_DB = os.path.join("/tmp", "meridian_graph_state.db")
+from state_graph.checkpoint import DEFAULT_DB
 
 
 @dataclass
