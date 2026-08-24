@@ -3,6 +3,12 @@ Contains the JSON schemas for all tool inputs,
 including required fields, allowed values,
 and validation constraints.
 """
+# BUG FIX (Person 2, MCP Server Lab correction): this JSON schema previously
+# capped age at 100 while the Pydantic model in MCP.py (PatientRegisterInput,
+# ge=0, le=120) and the error message in validation.py both said 0-120.
+# Any patient aged 101-120 passed Pydantic but was then rejected by this
+# jsonschema.validate() call with a generic schema error, before ever
+# reaching validate_patient_registration(). All three now agree on 0-120.
 REGISTER_PATIENT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -13,7 +19,7 @@ REGISTER_PATIENT_SCHEMA = {
         "age": {
             "type": "integer",
             "minimum": 0,
-            "maximum": 100,
+            "maximum": 120,
             "description": "Age of the patient"
         },
         "gender": {
