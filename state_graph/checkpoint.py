@@ -18,25 +18,17 @@ from dataclasses import dataclass, field, asdict
 from typing import Any, Dict, List, Optional
 
 
+from .db_location import resolve_db_path
+
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# Durable store: prefer shared hospital DB. In constrained environments
-# (e.g. some sandbox filesystems) SQLite WAL can fail; we then use /tmp.
-_SHARED = os.path.join(REPO_ROOT, "db", "meridian_hospital.db")
-_TMP = os.path.join("/tmp", "meridian_graph_state.db")
 
-def _pick_db() -> str:
-    # Probe write; fall back to /tmp if needed
-    try:
-        import sqlite3 as _sq
-        c = _sq.connect(_SHARED)
-        c.execute("CREATE TABLE IF NOT EXISTS _probe (x int)")
-        c.commit()
-        c.close()
-        return _SHARED
-    except Exception:
-        return _TMP
-
-DEFAULT_DB = os.path.join("/tmp", "meridian_graph_state.db")
+# BUG FIX (Person 2): this used to be hardcoded to /tmp regardless of the
+# _pick_db() helper that existed but was never called (see db_location.py
+# for the full explanation). DEFAULT_DB is now resolved lazily via a
+# property-like function so it always reflects the real, writable, durable
+# location -- the shared hospital DB whenever possible.
+def _default_db() -> str:
+    return resolve_db_path()
 
 
 @dataclass
@@ -65,11 +57,16 @@ class CheckpointStore:
     """Persist graph state after every meaningful transition."""
 
     def __init__(self, db_path: Optional[str] = None):
-        self.db_path = db_path or DEFAULT_DB
+        self.db_path = db_path or _default_db()
         self._ensure_schema()
 
     def _conn(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
+        # BUG FIX (Person 2): no timeout/WAL meant a checkpoint write racing
+        # with an MCP tool write to the same file could raise "database is
+        # locked" instead of waiting briefly and succeeding.
+        conn = sqlite3.connect(self.db_path, timeout=10)
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.execute("PRAGMA busy_timeout = 5000")
         conn.row_factory = sqlite3.Row
         return conn
 
