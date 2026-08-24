@@ -99,12 +99,18 @@ class GraphRuntime:
         self._checkpoint(state)
         return state
 
-    def resume(self, run_id: str) -> GraphState:
-        """Load last checkpoint and continue. Used after process restart or after HITL/ticket resolution."""
+    def resume(
+    self,
+    run_id: str,
+    data_patch: Optional[Dict[str, Any]] = None
+    ) -> GraphState:
         cp = self.store.latest(run_id)
         if not cp:
             raise ValueError(f"No checkpoint for run_id={run_id}")
         state = GraphState.from_snapshot(cp.state)
+        # Apply admin correction before resuming
+        if data_patch:
+            state.data.update(data_patch)
         # If we were waiting on HITL, check whether admin has resolved it
         if state.status == "waiting_hitl":
             task = get_hitl_for_run(run_id)
